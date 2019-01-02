@@ -1,5 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
+import re
 
 def url_to_soup(url):
     req = requests.get(url)
@@ -7,7 +8,16 @@ def url_to_soup(url):
 
 def horse_page_link(url, HOME_URL):
     soup = url_to_soup(url)
-    link_list = [HOME_URL + x.get('href') for x in soup.find_all('a', class_='tx-mid tx-low') ]
+    link_list = [HOME_URL + x.get('href') for x in soup.find_all('a',class_='tx-mid tx-low') if x]
+    return link_list
+
+def race_page_link(url, HOME_URL):
+    soup = url_to_soup(url)
+    link_list = []
+    for link in soup.find_all('a'):
+        link = link.get('href')
+        if re.search('race_info',str(link)):
+            link_list.append(HOME_URL + link)
     return link_list
 
 def get_previous_race_row(soup):
@@ -43,52 +53,20 @@ def result_data(url):
     race_date = dt.strptime(race_date_str, '%Y年%m月%d')
     return hukusyo_list, condition, race_len, race_date
 
-def add_soil_columns(row):
-        row['soil_heavy'] = 1 if row['wether'][-2:] =='/重'  else 0
-        row['soil_s_heavy'] = 1 if row['wether'][-2:] =='稍重'  else 0
-        row['soil_good'] = 1 if row['wether'][-2:] =='/良'  else 0
-        row['soil_bad'] = 1 if row['wether'][-2:] =='不良'  else 0
-        return row
-
-def add_race_data(df):
-    df_ =pd.DataFrame()
-    for idx, row in df.iterrows():
-        if row['popularity'] == '':
-            continue
-
-        # 馬場状態
-        row = add_soil_columns(row)
-
-        row['money']=int(row['money'].replace(',','')) 
-        row['horse_cnt'] = int(row['rank'].split('/')[1])
-        row['result_rank'] = int(row['rank'].split('/')[0])
-        row['len'] = int(row['len'][0:4])
-        row['popularity'] = int(row['popularity'])
-        row['weight'] = int(row['weight'])
-
-        # 　競馬場の一致
-        row['same_place'] = 1 if row['place'].startswith(PLACE)  else 0
-
-        # タイム(秒)
-        try:
-            time = datetime.datetime.strptime(row['time'], '%M:%S.%f')
-            row['sec'] = time.minute*60 + time.second + time.microsecond/1000000 
-        except ValueError:
-            time = datetime.datetime.strptime(row['time'], '%S.%f')
-            row['sec'] = time.second + time.microsecond/1000000
-
-        row['sec'] = int(row['sec']) 
-
-        df_ = df_.append(row, ignore_index=True)
-    return df_
-
-
 if __name__ == "__main__":
     
-    url = "https://www.nankankeiba.com/race_info/2018120720150501.do"
+    url = "https://www.nankankeiba.com/program/20181231201606.do"
+
 
     HOME_URL = "https://www.nankankeiba.com/"
 
-    link_list = horse_page_link(url, HOME_URL)
-
+    link_list = race_page_link(url, HOME_URL)
     print(link_list)
+
+    horse_link_list = []
+    for link in link_list:
+        horse_link = horse_page_link(link, HOME_URL)
+        horse_link_list.append(horse_link)
+    
+    print(horse_link_list)
+        
